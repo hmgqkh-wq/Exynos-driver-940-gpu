@@ -23,14 +23,23 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build clang vulkan-validationlayers-dev vulkan-headers
+        sudo apt-get install -y cmake ninja-build clang wget
 
-    - name: Install Vulkan SDK and headers
+    - name: Install Vulkan SDK
       run: |
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.268-focal.list https://packages.lunarg.com/vulkan/1.3.268/lunarg-vulkan-1.3.268-focal.list
-        sudo apt-get update
-        sudo apt-get install -y vulkan-sdk
+        # Download and install Vulkan SDK for Linux
+        wget https://sdk.lunarg.com/sdk/download/1.3.268.1/linux/vulkansdk-linux-x86_64-1.3.268.1.tar.gz
+        tar -xf vulkansdk-linux-x86_64-1.3.268.1.tar.gz
+        echo "VULKAN_SDK=$PWD/1.3.268.1/x86_64" >> $GITHUB_ENV
+        echo "$PWD/1.3.268.1/x86_64/bin" >> $GITHUB_PATH
+
+    - name: Check source files for Vulkan issues
+      run: |
+        echo "Checking source files for Vulkan layer definitions..."
+        if [ -f "src/xclipse_wrapper.cpp" ]; then
+          grep -n "LAYER_NEGOTIATE_INTERFACE_STRUCT" src/xclipse_wrapper.cpp || echo "Symbol not found in source"
+          grep -n "vkNegotiateLoaderLayerInterfaceVersion" src/xclipse_wrapper.cpp || echo "Function not found in source"
+        fi
 
     - name: Configure CMake for Android 16
       run: |
@@ -40,7 +49,7 @@ jobs:
           -DANDROID_PLATFORM=android-34 \
           -DANDROID_STL=c++_shared \
           -DCMAKE_BUILD_TYPE=Release \
-          -DVULKAN_HEADERS_INSTALL_DIR=/usr/include \
+          -DVULKAN_HEADERS_INCLUDE_DIR=$VULKAN_SDK/include \
           -G Ninja
 
     - name: Build
